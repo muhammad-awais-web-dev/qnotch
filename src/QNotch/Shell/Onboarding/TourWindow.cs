@@ -449,7 +449,7 @@ internal sealed class TourWindow : Window
         var (heroHeight, hero, title, subtitle, content) = id switch
         {
             "welcome" => (262.0, WelcomeHero(), "Welcome to QNotch", "Everything you glance at, in the notch at the top of your screen.", (FrameworkElement?)null),
-            "open" => (226.0, OpenHero(), "Open it from anywhere", "Hover the notch, or press your shortcut.", OpenContent()),
+            "open" => (226.0, OpenHero(), "Open it from anywhere", _gs.OpenOn == PanelOpenTrigger.Click ? "Click the notch, or press your shortcut." : "Hover the notch, or press your shortcut.", OpenContent()),
             "features" => (380.0, FeaturesHero(), "Pick your features",
                 _c.FeaturesEditable ? "You can change these any time in Settings, Features." : "A change applies after a restart.", FeaturesContent()),
             "connect" => (138.0, ConnectHero(), "Connect your accounts", "Optional. Everything else works without them.", ConnectContent()),
@@ -626,7 +626,7 @@ internal sealed class TourWindow : Window
             var (text, brush) = _note.Length > 0 ? (_note, "DangerBrush")
                 : _recording ? ("Press the new shortcut. Esc cancels, Backspace turns it off.", "TextSecondaryBrush")
                 : _tried ? ("That's it", "SuccessBrush")
-                : g.Length == 0 ? ("The shortcut is off. Hovering the notch still works.", "TextSecondaryBrush")
+                : g.Length == 0 ? (_gs.OpenOn == PanelOpenTrigger.Click ? "The shortcut is off. Click the notch to open it." : "The shortcut is off. Hovering the notch still works.", "TextSecondaryBrush")
                 : ($"Try it now: press {g}.", "TextSecondaryBrush");
             _tryText.Text = text;
             _tryText.SetResourceReference(TextBlock.ForegroundProperty, brush);

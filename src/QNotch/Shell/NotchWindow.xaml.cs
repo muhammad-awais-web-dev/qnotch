@@ -53,7 +53,9 @@ public partial class NotchWindow : Window
                 Glance.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(160)) { FillBehavior = FillBehavior.Stop });
         };
         Surface.SizeChanged += (_, _) => ClampShift();
+        PillProgressLayer.SizeChanged += (_, _) => UpdatePillProgressClip();
         Glance.SizeChanged += (_, _) => ClampShift();
+        GlanceNotice.SizeChanged += (_, _) => ClampShift();
         // OLE drag: mouse events are suspended during a drag, so the drag events stand in for hover. The preview (tunneling) events
         // reach the surface even when a child (a drop screen tile) handles the drag, so hover keeping never depends on who takes it.
         Surface.PreviewDragEnter += (_, e) => OnDragAlive(e, enter: true);
@@ -199,6 +201,7 @@ public partial class NotchWindow : Window
     {
         SurfaceShift.X = Fit(_shift, Surface.ActualWidth * SurfaceSquash.ScaleX);
         GlanceShift.X = _gameBar ? 0 : Fit(_shift, Glance.ActualWidth);
+        GlanceNoticeShift.X = _gameBar ? 0 : Fit(_shift, GlanceNotice.ActualWidth);
     }
 
     static double Fit(double shift, double width) { var room = Math.Max(0, (WinW - width) / 2); return Math.Clamp(shift, -room, room); }
@@ -409,11 +412,23 @@ public partial class NotchWindow : Window
         Surface.Height = Math.Min(Lerp(PillH, PanelH, o), WinH - 4);
         var r = Math.Max(0, Lerp(PillR, PanelR, Clamp01(o)));
         Surface.CornerRadius = new CornerRadius(0, 0, r, r);
+        UpdatePillProgressClip();
         PillLayer.Opacity = 1 - Clamp01(o / 0.3);
         var po = Clamp01((o - 0.3) / 0.55);
         PanelLayer.Opacity = po;
         PanelShift.Y = (1 - po) * -8;
         ClampShift();
+    }
+
+    // Start the rounded rectangle above the pill so only its lower corners clip the fill.
+    readonly RectangleGeometry _pillProgressClip = new();
+
+    void UpdatePillProgressClip()
+    {
+        var radius = Math.Max(0, Surface.CornerRadius.BottomRight - Surface.BorderThickness.Right);
+        _pillProgressClip.Rect = new Rect(0, -radius, PillProgressLayer.ActualWidth, PillProgressLayer.ActualHeight + radius);
+        _pillProgressClip.RadiusX = _pillProgressClip.RadiusY = radius;
+        PillProgressLayer.Clip = _pillProgressClip;
     }
 
     void Finish()
@@ -455,6 +470,7 @@ public partial class NotchWindow : Window
         PillLayer.Opacity = 1;
         Surface.Height = PillH;
         Surface.CornerRadius = new CornerRadius(0, 0, PillR, PillR);
+        UpdatePillProgressClip();
         _pillW = MeasurePill();
         Surface.Width = _pillW;
         Fade(1);

@@ -63,6 +63,39 @@ internal static class AgentsViews
         return UiKit.BindVisible(p, st, nameof(AgentsState.PillVisible));
     }
 
+    public static Button CodexActivity(AgentsState state, Action openAgents)
+    {
+        var statusText = new TextBlock { FontSize = 11, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
+        var chatText = new TextBlock { FontSize = 10, TextTrimming = TextTrimming.CharacterEllipsis };
+        var content = new StackPanel { MaxWidth = 86 };
+        content.Children.Add(statusText);
+        content.Children.Add(chatText);
+        var button = new Button { Content = content, Padding = new Thickness(6, 3, 6, 3), VerticalAlignment = VerticalAlignment.Center };
+        AutomationProperties.SetAutomationId(button, "codex-activity");
+        button.Click += (_, _) => openAgents();
+
+        void Refresh()
+        {
+            var active = state.Sessions.Where(session => session.Agent == "codex"
+                && session.Status is AgentStatus.Working or AgentStatus.NeedsYou).ToList();
+            button.Visibility = active.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+            if (active.Count == 0) return;
+
+            var session = active[0];
+            var title = session.Title.Length == 0 ? session.Name : session.Title;
+            var status = session.Status == AgentStatus.NeedsYou ? "Needs you" : "Working";
+            statusText.Text = active.Count == 1 ? $"Codex · {status}" : $"Codex · {active.Count} active";
+            statusText.SetResourceReference(TextBlock.ForegroundProperty, StatusBrush(session.Status));
+            chatText.Text = title;
+            button.ToolTip = active.Count == 1 ? $"{statusText.Text} · {title}" : statusText.Text;
+            AutomationProperties.SetName(button, (string)button.ToolTip);
+        }
+
+        state.Changed += Refresh;
+        Refresh();
+        return button;
+    }
+
     /// <summary>A rounded row that lights up under the pointer.</summary>
     public static Border Hover(UIElement child)
     {

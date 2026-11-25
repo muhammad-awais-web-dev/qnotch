@@ -26,14 +26,14 @@ public sealed class TourChoices
         Mode = mode;
         _ids = moduleIds.ToList();
         _defaultOff = new(defaultOff ?? [], StringComparer.OrdinalIgnoreCase);
-        Off = mode == TourMode.FirstRun ? new(StringComparer.OrdinalIgnoreCase) : new(gs.DisabledModules, StringComparer.OrdinalIgnoreCase);
+        Off = new(gs.DisabledModules, StringComparer.OrdinalIgnoreCase);
         foreach (var id in _defaultOff)
         {
             if (mode == TourMode.FirstRun || !gs.LocalEnabledModules.Contains(id, StringComparer.OrdinalIgnoreCase)) Off.Add(id);
             else Off.Remove(id);
         }
         // The tour shows the defaults on a fresh install, the current values when opened from Settings.
-        Updates = mode == TourMode.FirstRun || gs.CheckForUpdates;
+        Updates = gs.CheckForUpdates;
         StartWithWindows = mode == TourMode.FirstRun || gs.StartWithWindows;
     }
 
@@ -42,7 +42,7 @@ public sealed class TourChoices
     /// <summary>Feature switches only on a first run: a running app cannot drop a module without a restart, so on demand it is a read-only list.</summary>
     public bool FeaturesEditable => Mode == TourMode.FirstRun;
 
-    /// <summary>Module ids switched off (every switch starts on).</summary>
+    /// <summary>Module ids switched off.</summary>
     public HashSet<string> Off { get; }
     public bool IsOn(string id) => !Off.Contains(id);
 

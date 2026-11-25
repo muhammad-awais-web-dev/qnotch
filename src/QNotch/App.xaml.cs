@@ -97,6 +97,12 @@ public partial class App : Application
         _store = new SettingsStore { ReadOnly = snapDir is not null };
         var fresh = !_store.Exists("general");
         var gs = _store.Get<GeneralSettings>("general");
+        if (fresh && snapDir is null)
+        {
+            gs.DisabledModules = ModuleList.InitialDisabledModules();
+            gs.OpenOn = PanelOpenTrigger.Click;
+            gs.CheckForUpdates = false;
+        }
         Analytics.Start(gs, snapDir is not null || _debugControl);
         gs.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(GeneralSettings.ShareUsageData) && !gs.ShareUsageData) Analytics.Current?.Clear(); };
         // --measure loads like a normal start (early modules first, the rest and Game mode at idle); snapshot and smoke load everything at once.

@@ -206,6 +206,7 @@ public sealed class ShellController : IShell
         _mode = m;
         if (m != ShellMode.Expanded) _shortcuts.InputCaptured = false;
         _peek?.Dispose(); // the panel or the game bar takes over the pill: a peek never comes back afterwards
+        if (m != ShellMode.Collapsed) _w.HideGlanceNotice();
         UpdateGlance();
         ModeChanged?.Invoke(m);
         NotifyCadence();
@@ -218,6 +219,15 @@ public sealed class ShellController : IShell
     {
         var strip = _w.PillStrip;
         strip.Children.Clear();
+        _w.PillProgressLayer.Children.Clear();
+        foreach (var segment in _segments.Items.Where(segment => segment.Slot == SegmentSlot.PillProgress))
+            if (BuildPresentedSegment(segment) is { } progress) _w.PillProgressLayer.Children.Add(progress);
+        _w.HomeDownloadsLayer.Children.Clear();
+        _w.HomeStatusLayer.Children.Clear();
+        foreach (var segment in _segments.Items.Where(segment => segment.Slot == SegmentSlot.HomeStatus))
+            if (BuildPresentedSegment(segment) is { } status) _w.HomeStatusLayer.Children.Add(status);
+        foreach (var segment in _segments.Items.Where(segment => segment.Slot == SegmentSlot.HomeDownloads))
+            if (BuildPresentedSegment(segment) is { } downloads) _w.HomeDownloadsLayer.Children.Add(downloads);
         foreach (var slot in new[] { SegmentSlot.PillLeft, SegmentSlot.PillRight })
         {
             foreach (var d in _segments.Items)
@@ -285,7 +295,14 @@ public sealed class ShellController : IShell
             e.Margin = new Thickness(any ? 14 : 0, 0, 0, 0);
             any = true;
         }
-        _vm.ShowGlance = _mode == ShellMode.Collapsed && any;
+        _vm.ShowGlance = _mode == ShellMode.Collapsed && any && !_w.HasGlanceNotice;
+    }
+
+    public void ShowGlanceNotice(string glyph, string text, string brushKey, int holdMs = 3500)
+    {
+        if (_mode != ShellMode.Collapsed) return;
+        _w.ShowGlanceNotice(glyph, text, brushKey, holdMs, UpdateGlance);
+        UpdateGlance();
     }
 
     // ---------- panel open / close ----------

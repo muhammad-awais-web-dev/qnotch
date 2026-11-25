@@ -29,8 +29,16 @@ public sealed class MediaModule : INotchModule, ICadenceAware
 
         ctx.Tabs.Register(new TabDescriptor("media", "Media", Glyphs.Music, 10, () => new MediaTab(_m, ctx.Shell), () => !_m.HasSession));
         ctx.Cards.Register(new CardDescriptor("media", "Now playing", 20, () => new MediaCard(_m, ctx.Shell), DefaultSize: CardSize.Medium));
-        ctx.Segments.Register(new SegmentDescriptor("media.pill", SegmentSlot.PillLeft, 10, () => MediaSegments.Pill(_m)));
-        ctx.Segments.Register(new SegmentDescriptor("media.glance", SegmentSlot.Glance, 10, () => MediaSegments.Glance(_m)));
+        var weather = ctx.Settings.Get<Weather.WeatherSettings>("weather");
+        var weatherState = ctx.Settings.ReadOnly ? null : new Weather.WeatherState();
+        if (weatherState is not null)
+        {
+            var weatherService = new Weather.WeatherService(ctx, weatherState, weather);
+            weatherService.Start();
+            _m.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MediaState.IsNowPlaying)) weatherState.PillVisible = weather.ShowInPill && !_m.IsNowPlaying; };
+            weatherState.PropertyChanged += (_, e) => { if (e.PropertyName is nameof(Weather.WeatherState.Symbol) or nameof(Weather.WeatherState.TempText)) { } };
+        }
+        ctx.Segments.Register(new SegmentDescriptor("media.pill", SegmentSlot.PillLeft, 10, () => MediaSegments.Pill(_m, ctx.Settings.ReadOnly)));
         ctx.Segments.Register(new SegmentDescriptor("media.game", SegmentSlot.GameBar, 10, () => MediaSegments.Game(_m),
             "Now playing", "Title and artist, only while something plays."));
 
@@ -46,7 +54,13 @@ public sealed class MediaModule : INotchModule, ICadenceAware
         };
         ctx.Shell.TabChanged += _ => UpdateTicker();
 
-        if (ctx.Settings.ReadOnly) { SeedDemo(); return; } // snapshot run: demo track, never touch the OS media sessions
+        if (ctx.Settings.ReadOnly) // Snapshot runs use demo tracks without touching OS media sessions.
+        {
+            SeedDemo();
+            ctx.Demos.Register(new DemoState("media.idle", "idle", 5, () => DemoPlayback(false)));
+            ctx.Demos.Register(new DemoState("media.playing", "playing", 5, () => DemoPlayback(true)));
+            return;
+        }
         _provider.Start();
     }
 
@@ -67,6 +81,13 @@ public sealed class MediaModule : INotchModule, ICadenceAware
         _m.SelectedSessionId = "spotify";
         _m.HasSession = true;
         RefreshProgress();
+    }
+
+    Action DemoPlayback(bool playing)
+    {
+        var before = _m.IsPlaying;
+        _m.IsPlaying = playing;
+        return () => _m.IsPlaying = before;
     }
 
     public void SetCadence(Cadence cadence)

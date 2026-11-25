@@ -50,7 +50,7 @@ internal sealed class TaildropState
 /// <summary>
 /// Taildrop: send files to your devices on Tailscale, and save files that wait in the Tailscale inbox. It talks to the local Tailscale
 /// service only while the panel is open (a refresh when it opens, then every 10 s while the Taildrop tab or Home is showing) and while a
-/// transfer the user started runs. Nothing runs while collapsed.
+/// transfer the user started runs. A separate local event stream reports incoming transfers even while collapsed.
 /// </summary>
 public sealed class TaildropModule : INotchModule, ICadenceAware
 {
@@ -77,6 +77,14 @@ public sealed class TaildropModule : INotchModule, ICadenceAware
         })));
         if (ctx.Settings.ReadOnly) { Seed(); return; }
         _client = new TaildropClient();
+        var receiver = _client;
+        var watch = new CancellationTokenSource();
+        ctx.Dispatcher.ShutdownStarted += (_, _) => watch.Cancel();
+        _ = Task.Run(() => receiver.WatchIncomingAsync(name => ctx.Bus.Run(() =>
+        {
+            ctx.Shell.ShowGlanceNotice(Icon, $"Taildrop received {name}", "SuccessBrush");
+            if (_cadence == Cadence.Fast && Watching) Refresh();
+        }), watch.Token));
         ctx.Shell.FileDragEntered += Refresh; // the drop screen asks again while it shows, so devices arrive in time
         ctx.Shell.TabChanged += _ => { UpdateTimer(); if (_cadence == Cadence.Fast && Watching) Refresh(); };
     }

@@ -4,12 +4,14 @@ using QNotch.Modules.Capture;
 using QNotch.Modules.Clipboard;
 using QNotch.Modules.ColorPicker;
 using QNotch.Modules.FileTray;
+using QNotch.Modules.Fdm;
 using QNotch.Modules.Github;
 using QNotch.Modules.Media;
 using QNotch.Modules.Notes;
 using QNotch.Modules.Notifications;
 using QNotch.Modules.Pomodoro;
 using QNotch.Modules.Scheduled;
+using QNotch.Modules.Screenshots;
 using QNotch.Modules.Search;
 using QNotch.Modules.Stats;
 using QNotch.Modules.Taildrop;
@@ -28,6 +30,7 @@ public static class ModuleList
         new("stats", "System stats", "CPU, memory, network, battery and clock in the pill, the System card and the game bar.", () => new StatsModule(), Early: true,
             Glyph: ""),
         new("media", "Now playing", "Track, artwork and controls for anything that plays media.", () => new MediaModule(), Early: true, Glyph: Glyphs.Music),
+        new("fdm", "FDM downloads", "Show active Free Download Manager progress in the notch.", () => new FdmModule(), Early: true, Glyph: ""),
         new("clipboard", "Clipboard history", "Text and images you copy, kept in memory.", () => new ClipboardModule(), Glyph: Glyphs.Clipboard),
         new("ai", "AI apps and usage", "Alt+1 to Alt+6 shortcuts and usage limits for Claude Code and Codex.", () => new AiModule(), Shared: new(typeof(AiSettings), "RefreshMinutes:5..60"),
             Glyph: Glyphs.Robot),
@@ -37,13 +40,14 @@ public static class ModuleList
         new("github", "GitHub", "Your GitHub contribution graph, with a token you add in Settings.", () => new GithubModule(), Glyph: Glyphs.Github, Setup: c => GithubSetup.Create(c)),
         new("filetray", "File tray", "Drop files on the notch to keep them within reach.", () => new FileTrayModule(), Glyph: Glyphs.Folder,
             Tip: _ => "Drag files onto the notch to keep them within reach."),
+        new("screenshots", "Screenshots", "Preview, copy and drag recent snips from your Screenshots folder.", () => new ScreenshotsModule(), Glyph: ScreenshotsModule.Icon),
         new("taildrop", "Taildrop", "Send files to your devices on Tailscale: drag them onto the notch and drop them on a device. Needs Tailscale; off by default.", () => new TaildropModule(),
             Glyph: TaildropModule.Icon, Tip: _ => "Drag files onto the notch and drop them on a Taildrop device to send them over Tailscale.", DefaultEnabled: false),
         new("notifications", "Notifications", "Lets apps and scripts post notifications to the notch: QNotch.exe notify, a named pipe or local HTTP.", () => new NotificationsModule(), Early: true,
             Shared: new(typeof(NotificationSettings), "ToastSeconds:0..60", "RetentionDays:1..30", "OpenOnError", "Sound", "QuietDuringCalls"), Glyph: NotifyIcons.Bell),
-        new("capture", "Mic and camera", "A glyph in the pill and the game bar while an app uses your microphone or camera.", () => new CaptureModule(), Early: true, Glyph: ""),
+        new("capture", "Mic and camera", "See active mic and camera use in the small dock and app names on Home.", () => new CaptureModule(), Early: true, Glyph: ""),
         new("scheduled", "Scheduled tasks", "Your Windows scheduled tasks (scripts and agents on a timer), with pause and delete.", () => new ScheduledModule(), Glyph: ScheduledModule.Icon),
-        new("volume", "Volume", "System volume and mute on a Home card.", () => new VolumeModule(), Glyph: Glyphs.Volume),
+        new("volume", "Volume and brightness", "System volume controls and temporary level indicators in the small dock.", () => new VolumeModule(), Glyph: Glyphs.Volume),
         new("timer", "Timer", "Countdown with Pomodoro presets on a Home card, in the pill and in the game bar.", () => new PomodoroModule(), Early: true, Shared: new(typeof(TimerSettings), "Minutes:1..180"),
             Glyph: ""),
         new("colorpicker", "Color picker", "Pick a color anywhere on screen and copy its hex code.", () => new ColorPickerModule(), Glyph: ""),
@@ -55,11 +59,16 @@ public static class ModuleList
             () => new TerminalModule(), Glyph: "", DefaultEnabled: false),
     ];
 
+    public static List<string> InitialDisabledModules() => All
+        .Where(module => module.DefaultEnabled && module.Id is not ("media" or "agents" or "filetray" or "notifications" or "screenshots"))
+        .Select(module => module.Id)
+        .ToList();
+
     /// <summary>The welcome tour's Features step: groups in order, each with module ids in order. A module missing here joins the last group.</summary>
     public static readonly IReadOnlyList<(string Title, string[] Ids)> TourGroups =
     [
         ("At a glance", ["stats", "media", "weather", "capture", "timer", "volume"]),
-        ("Get things done", ["clipboard", "search", "note", "filetray", "colorpicker", "scheduled"]),
+        ("Get things done", ["clipboard", "search", "note", "filetray", "screenshots", "colorpicker", "scheduled"]),
         ("For developers", ["agents", "ai", "github", "notifications", "taildrop", "terminal"]),
     ];
 

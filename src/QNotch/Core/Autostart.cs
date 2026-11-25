@@ -14,7 +14,13 @@ public static class Autostart
         {
             using var k = Registry.CurrentUser.OpenSubKey(RunKey, true);
             if (k is null) return;
-            if (on) k.SetValue("QNotch", $"\"{Environment.ProcessPath}\"");
+            if (on)
+            {
+                var command = $"\"{Environment.ProcessPath}\"";
+                if (Environment.GetEnvironmentVariable("QNOTCH_DATA_DIR") is { Length: > 0 })
+                    command += $" --data-dir \"{Path.TrimEndingDirectorySeparator(Paths.DataDir)}\"";
+                k.SetValue("QNotch", command);
+            }
             else k.DeleteValue("QNotch", false);
         }
         catch (Exception ex) { Log.Warn("Autostart failed", ex); }

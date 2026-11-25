@@ -34,7 +34,7 @@ internal static class T3Sessions
         var environment = "";
         try { environment = File.ReadAllText(Path.Combine(Path.GetDirectoryName(path)!, "environment-id")).Trim(); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* focus the app when its identity is unavailable */ }
-        return T3Titles.ReadRows(path, Query).Select(row =>
+        return QNotch.Core.LocalSqlite.ReadRows(path, Query).Select(row =>
         {
             var active = row[6] is "preparing" or "starting" or "running" or "waiting";
             var status = active ? row[8].Length > 0 ? AgentStatus.NeedsYou : AgentStatus.Working : AgentStatus.Done;

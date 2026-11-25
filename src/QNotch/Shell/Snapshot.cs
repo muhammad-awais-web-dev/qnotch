@@ -86,7 +86,7 @@ internal static partial class Snapshot
 
         // The collapsed pill: idle, then each module state on top of idle (pill-running, pill-capture, ...).
         var states = scene.Demos.Items.Select(d => d.State).Where(s => s != "idle").Distinct().ToList();
-        if (states.Select(s => "pill-" + s).Concat(["pill", "pill-peek"]).Any(Wants))
+        if (states.Select(s => "pill-" + s).Concat(["pill", "pill-peek", "pill-taildrop", "pill-volume", "pill-brightness"]).Any(Wants))
         {
             var idle = Demo(scene.Demos, "idle");
             try
@@ -109,8 +109,23 @@ internal static partial class Snapshot
                         try { await Task.Delay(400); Notch(p, 84); }
                         finally { undo(); }
                     });
+                await View("pill-taildrop", async p =>
+                {
+                    shell.ShowGlanceNotice("\uE724", "Taildrop received photo.jpg", "SuccessBrush");
+                    await Task.Delay(450);
+                    Notch(p, 84);
+                });
+                await View("pill-volume", p => GlanceLevel(p, "\uE767", "Volume 62%"));
+                await View("pill-brightness", p => GlanceLevel(p, "\uE706", "Brightness 45%"));
             }
             finally { idle(); }
+        }
+
+        async Task GlanceLevel(string path, string glyph, string label)
+        {
+            shell.ShowGlanceNotice(glyph, label, "AccentBrush", 1250);
+            await Task.Delay(450);
+            Notch(path, 84);
         }
 
         // The open panel: every tab, Home in edit mode, then each Home card on its own.

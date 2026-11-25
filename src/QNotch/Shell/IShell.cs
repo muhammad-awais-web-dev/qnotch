@@ -31,6 +31,9 @@ public interface IShell
     /// nothing while the panel is open. Returns null in game mode, where the caller should stay quiet too (no sound).</summary>
     IDisposable? Peek(string glyph, string text, string brushKey, int ms = 4000);
 
+    /// <summary>Shows a temporary message in the small dock under the collapsed pill.</summary>
+    void ShowGlanceNotice(string glyph, string text, string brushKey, int holdMs = 3500);
+
     /// <summary>The panel is pinned open (Settings, General).</summary>
     bool IsPinned { get; }
 

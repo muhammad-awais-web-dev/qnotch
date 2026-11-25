@@ -14,7 +14,7 @@ public sealed partial class MediaState : ObservableObject
     /// <summary>False when the OS media API cannot be used at all (render "unavailable"). True when it works even if nothing plays.</summary>
     [ObservableProperty] bool _isAvailable;
     [ObservableProperty] bool _hasSession;
-    /// <summary>HasSession, playing and a title: what the glance strip and the game bar show. Kept in sync by the partials below.</summary>
+    /// <summary>HasSession, playing and a title: what the pill and the game bar show. Kept in sync by the partials below.</summary>
     [ObservableProperty] bool _isNowPlaying;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(NowPlayingText))] string _title = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(NowPlayingText))] string _artist = "";

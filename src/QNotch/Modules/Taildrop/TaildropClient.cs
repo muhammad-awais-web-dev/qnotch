@@ -30,6 +30,9 @@ public sealed class TaildropClient : IDisposable
 
     readonly HttpClient _http;
 
+    sealed record IncomingFile(string? Name, DateTimeOffset Started, bool Done);
+    sealed record FileNotification(IncomingFile[]? IncomingFiles);
+
     public TaildropClient()
     {
         var handler = new SocketsHttpHandler
@@ -49,6 +52,43 @@ public sealed class TaildropClient : IDisposable
         };
         // The LocalAPI only answers this host name, and refuses requests that carry a Referer or Origin.
         _http = new HttpClient(handler) { BaseAddress = new Uri("http://local-tailscaled.sock/localapi/v0/"), Timeout = Timeout.InfiniteTimeSpan };
+    }
+
+    /// <summary>Listen for completed incoming transfers, including files saved directly to Downloads.</summary>
+    internal async Task WatchIncomingAsync(Action<string> received, CancellationToken ct)
+    {
+        var reported = new HashSet<(string Name, DateTimeOffset Started)>();
+        var recent = new Queue<(string Name, DateTimeOffset Started)>();
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                using var response = await _http.GetAsync("watch-ipn-bus", HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                await EnsureOk(response, ct).ConfigureAwait(false);
+                QNotch.Core.Log.Info("Taildrop: listening for incoming files.");
+                await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                await foreach (var notice in JsonSerializer.DeserializeAsyncEnumerable<FileNotification>(stream, topLevelValues: true, cancellationToken: ct).ConfigureAwait(false))
+                {
+                    foreach (var file in notice?.IncomingFiles ?? [])
+                    {
+                        if (!file.Done || file.Name is not { Length: > 0 } name || !IsPlainFileName(name)) continue;
+                        var key = (name, file.Started);
+                        if (!reported.Add(key)) continue;
+                        recent.Enqueue(key);
+                        if (recent.Count > 128) reported.Remove(recent.Dequeue());
+                        received(name);
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+            catch (Exception ex) when (ex is IOException or HttpRequestException or TimeoutException or TaildropException or JsonException)
+            {
+                QNotch.Core.Log.Warn("Taildrop: incoming file listener disconnected.", ex);
+            }
+
+            try { await Task.Delay(TimeSpan.FromSeconds(15), ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+        }
     }
 
     /// <summary>Whether Tailscale for Windows is installed, for telling "not installed" from "not running" when the pipe is missing.</summary>

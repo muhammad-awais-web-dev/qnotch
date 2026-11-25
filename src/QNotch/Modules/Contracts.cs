@@ -35,7 +35,7 @@ public sealed record CardDescriptor(string Id, string Title, int DefaultOrder, F
 }
 
 /// <summary>Where a segment is hosted: the pill (left or right cluster), the glance strip under the collapsed pill, or the game bar.</summary>
-public enum SegmentSlot { PillLeft, PillRight, Glance, GameBar }
+public enum SegmentSlot { PillProgress, HomeStatus, HomeDownloads, PillLeft, PillRight, Glance, GameBar }
 
 /// <summary>
 /// A small view the shell hosts outside the panel. Segments are read once: pill and glance segments at startup, game bar segments on the

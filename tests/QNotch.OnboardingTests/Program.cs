@@ -115,6 +115,18 @@ await Test("declared feature defaults apply; DisabledModules lists switched-off 
     Assert(gs.DisabledModules.SequenceEqual(expected), string.Join(",", gs.DisabledModules));
     return Task.CompletedTask;
 });
+await Test("the personal defaults survive a skipped tour and features can be restored", () =>
+{
+    var gs = new GeneralSettings { DisabledModules = ModuleList.InitialDisabledModules(), CheckForUpdates = false };
+    var c = new TourChoices(TourMode.FirstRun, gs, Ids(), DefaultOff());
+    Assert(ModuleList.All.Where(m => c.IsOn(m.Id)).Select(m => m.Id).ToHashSet()
+        .SetEquals(["media", "agents", "filetray", "notifications", "screenshots"]));
+    c.SetOn("clipboard", true);
+    c.Apply(gs, TourEnd.Skipped);
+    Assert(ModuleList.All.Single(m => m.Id == "clipboard").IsEnabled(gs));
+    Assert(!gs.CheckForUpdates && gs.UpdateChecksChoiceMade);
+    return Task.CompletedTask;
+});
 await Test("untouched features keep their defaults, also when skipped", () =>
 {
     var gs = new GeneralSettings();

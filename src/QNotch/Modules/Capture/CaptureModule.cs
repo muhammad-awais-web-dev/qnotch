@@ -17,7 +17,7 @@ internal sealed partial class CaptureState : ObservableObject
 }
 
 /// <summary>
-/// A microphone and a camera glyph in the pill and the game bar while any app uses them. Two <see cref="CaptureWatch"/>es report
+/// Mic and camera indicators in the small dock, with app names on Home. Two <see cref="CaptureWatch"/>es report
 /// changes from the registry; there is no timer.
 /// </summary>
 public sealed class CaptureModule : INotchModule
@@ -30,8 +30,9 @@ public sealed class CaptureModule : INotchModule
 
     public void Initialize(ModuleContext ctx)
     {
-        ctx.Segments.Register(new SegmentDescriptor("capture.pill", SegmentSlot.PillRight, 3, Segment));
-        ctx.Segments.Register(new SegmentDescriptor("capture.game", SegmentSlot.GameBar, 12, Segment,
+        ctx.Segments.Register(new SegmentDescriptor("capture.pill", SegmentSlot.Glance, 5, () => Segment(labeled: true)));
+        ctx.Segments.Register(new SegmentDescriptor("capture.home", SegmentSlot.HomeStatus, 0, Details));
+        ctx.Segments.Register(new SegmentDescriptor("capture.game", SegmentSlot.GameBar, 12, () => Segment(),
             "Mic and camera", "Only while an app uses the microphone or camera."));
 
         if (ctx.Settings.ReadOnly) // snapshot run: demo data, no watchers
@@ -64,16 +65,36 @@ public sealed class CaptureModule : INotchModule
         _st.Description = string.Join(" ", parts);
     }
 
-    /// <summary>Same element in the pill and the game bar.</summary>
-    FrameworkElement Segment()
+    FrameworkElement Details()
     {
-        var mic = UiKit.BindVisible(UiKit.Glyph(Mic, 12, "WarningBrush"), _st, nameof(CaptureState.MicInUse));
-        var cam = UiKit.BindVisible(UiKit.Glyph(Cam, 12, "SuccessBrush"), _st, nameof(CaptureState.CameraInUse));
-        mic.VerticalAlignment = cam.VerticalAlignment = VerticalAlignment.Center;
-        cam.Margin = new Thickness(4, 0, 0, 0);
+        var description = UiKit.Text("", "Muted");
+        description.TextWrapping = TextWrapping.Wrap;
+        UiKit.Bind(description, TextBlock.TextProperty, _st, nameof(CaptureState.Description));
+        var row = new DockPanel();
+        var icons = Segment();
+        icons.Margin = new Thickness(0, 0, 8, 0);
+        row.Children.Add(icons);
+        row.Children.Add(description);
+        var card = new Border { Child = row, CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(0, 0, 0, 6) };
+        card.SetResourceReference(Border.BackgroundProperty, "ControlBrush");
+        return UiKit.BindVisible(card, _st, nameof(CaptureState.AnyInUse));
+    }
+
+    FrameworkElement Segment(bool labeled = false)
+    {
+        FrameworkElement Device(string glyph, string brush, string label, string active)
+        {
+            var icon = UiKit.Glyph(glyph, 12, brush);
+            icon.VerticalAlignment = VerticalAlignment.Center;
+            if (!labeled) return UiKit.BindVisible(icon, _st, active);
+            var item = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(2, 0, 3, 0) };
+            item.Children.Add(icon);
+            item.Children.Add(new TextBlock { Text = label, FontSize = 11, Margin = new Thickness(5, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center });
+            return UiKit.BindVisible(item, _st, active);
+        }
         var p = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        p.Children.Add(mic);
-        p.Children.Add(cam);
+        p.Children.Add(Device(Mic, "WarningBrush", "Mic in use", nameof(CaptureState.MicInUse)));
+        p.Children.Add(Device(Cam, "SuccessBrush", "Camera in use", nameof(CaptureState.CameraInUse)));
         UiKit.Bind(p, AutomationProperties.NameProperty, _st, nameof(CaptureState.Description));
         UiKit.Bind(p, FrameworkElement.ToolTipProperty, _st, nameof(CaptureState.Description));
         return UiKit.BindVisible(p, _st, nameof(CaptureState.AnyInUse));

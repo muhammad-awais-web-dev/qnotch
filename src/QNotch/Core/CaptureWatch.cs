@@ -22,6 +22,7 @@ public sealed class CaptureWatch : IDisposable
     readonly RegistryKey? _key;
     readonly AutoResetEvent _signal = new(false);
     readonly RegisteredWaitHandle? _wait;
+    readonly Timer? _audioTimer;
     readonly object _gate = new();
     /// <summary>Processes holding the device, by id, kept so their Exited event fires.</summary>
     readonly Dictionary<int, Process> _holders = new();
@@ -34,8 +35,11 @@ public sealed class CaptureWatch : IDisposable
         _capability = capability;
         _changed = changed;
         _key = Registry.CurrentUser.OpenSubKey(Store + capability);
-        if (_key is null) { Log.Info($"No consent store for {capability}: nothing to watch"); return; }
-        _wait = ThreadPool.RegisterWaitForSingleObject(_signal, (_, _) => Scan(), null, Timeout.Infinite, executeOnlyOnce: false);
+        if (_key is null) Log.Info($"No consent store for {capability}: using audio sessions when available");
+        if (_key is not null)
+            _wait = ThreadPool.RegisterWaitForSingleObject(_signal, (_, _) => Scan(), null, Timeout.Infinite, executeOnlyOnce: false);
+        if (capability == Microphone)
+            _audioTimer = new Timer(_ => Scan(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         ThreadPool.QueueUserWorkItem(_ => Scan());
     }
 
@@ -47,9 +51,12 @@ public sealed class CaptureWatch : IDisposable
             try
             {
                 // Armed before reading, so a change during the read signals again.
-                var err = Native.RegNotifyChangeKeyValue(_key!.Handle, true,
-                    Native.REG_NOTIFY_CHANGE_NAME | Native.REG_NOTIFY_CHANGE_LAST_SET | Native.REG_NOTIFY_THREAD_AGNOSTIC, _signal.SafeWaitHandle, true);
-                if (err != 0) Log.Warn($"Watching {_capability} failed ({err}): changes are not seen until QNotch restarts");
+                if (_key is not null)
+                {
+                    var err = Native.RegNotifyChangeKeyValue(_key.Handle, true,
+                        Native.REG_NOTIFY_CHANGE_NAME | Native.REG_NOTIFY_CHANGE_LAST_SET | Native.REG_NOTIFY_THREAD_AGNOSTIC, _signal.SafeWaitHandle, true);
+                    if (err != 0) Log.Warn($"Watching {_capability} failed ({err}): registry changes are not seen until QNotch restarts");
+                }
                 var apps = InUse();
                 var joined = string.Join('\n', apps);
                 if (joined == _last) return;
@@ -83,7 +90,9 @@ public sealed class CaptureWatch : IDisposable
                 apps.Add(DesktopName(path, exe));
             }
         }
-        Visit(_key!, false);
+        if (_key is not null) Visit(_key, false);
+        if (_capability == Microphone)
+            foreach (var app in CaptureAudioSessions.InUse()) apps.Add(app);
         foreach (var p in procs ?? []) if (!_holders.ContainsValue(p)) p.Dispose();
         foreach (var id in _holders.Keys.Where(id => !held.Contains(id)).ToList()) { _holders[id].Dispose(); _holders.Remove(id); }
         return apps.ToList();
@@ -129,6 +138,7 @@ public sealed class CaptureWatch : IDisposable
             if (_disposed) return;
             _disposed = true;
             _wait?.Unregister(null);
+            _audioTimer?.Dispose();
             _key?.Dispose();
             foreach (var p in _holders.Values) p.Dispose();
             _holders.Clear();

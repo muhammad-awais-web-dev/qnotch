@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using QNotch.Theme;
 
@@ -33,12 +34,33 @@ public sealed class VolumeModule : INotchModule, ICadenceAware
         _ctx = ctx;
         ctx.Cards.Register(new CardDescriptor("volume", "Volume", 25, Card));
         if (ctx.Settings.ReadOnly) { _st.Level = 62; return; } // snapshot run: demo level, never touch the audio device
-        _com.Changed += (level, muted) => ctx.Bus.Run(() => Apply(level, muted));
+        var overlay = new DispatcherTimer(DispatcherPriority.Normal, ctx.Dispatcher) { Interval = TimeSpan.FromMilliseconds(120) };
+        overlay.Tick += (_, _) =>
+        {
+            overlay.Stop();
+            ctx.Shell.ShowGlanceNotice(_st.Muted ? SpeakerMuted : Speaker, $"Volume {_st.Text.ToLowerInvariant()}", "AccentBrush", 1250);
+        };
+        _com.Changed += (level, muted) => ctx.Bus.Run(() =>
+        {
+            var changed = _st.Level != Math.Round(level * 100) || _st.Muted != muted;
+            Apply(level, muted);
+            if (!changed) return;
+            overlay.Stop();
+            overlay.Start();
+        });
+        _com.DefaultChanged += RefreshOutput;
+        BrightnessNotice.Register(ctx);
+        RefreshOutput();
     }
 
     public void SetCadence(Cadence cadence)
     {
         if (cadence != Cadence.Fast || _ctx.Settings.ReadOnly) return;
+        RefreshOutput();
+    }
+
+    void RefreshOutput()
+    {
         Task.Run(() =>
         {
             var v = _com.Open();

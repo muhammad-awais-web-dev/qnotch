@@ -162,6 +162,8 @@ public sealed partial class AgentsModule : INotchModule, ICadenceAware
         ctx.Consumers.Register("agents", CaptureAgents);
         ctx.Tabs.Register(new TabDescriptor(TabId, "Agents", Icon, 35, () => new AgentsTab(this, _st), () => _st.Sessions.Count == 0 && !_st.Groups.Any(g => g.LeftRunning)));
         ctx.SettingsSections.Register(new SettingsSectionDescriptor(TabId, "Agents", Icon, 45, () => AgentsSettings.Create(this, _cfg, ctx.Settings.ReadOnly)));
+        ctx.QuickActions.Register(new QuickActionDescriptor("agents.codex-activity", 5,
+            () => AgentsViews.CodexActivity(_st, () => ctx.Shell.SelectTab(TabId))));
         ctx.Segments.Register(new SegmentDescriptor("agents.pill", SegmentSlot.PillRight, 6, () => AgentsViews.Segment(_st)));
         ctx.Segments.Register(new SegmentDescriptor("agents.game", SegmentSlot.GameBar, 13, () => AgentsViews.Segment(_st), "Agents", "Working agents, and which one needs you."));
         _needsYouSound = ctx.Sounds.Add("agents.needsyou", "Agent needs you", "An agent waits for your answer.", "Notification.IM", 20);
